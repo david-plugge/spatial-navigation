@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+
+		<style>
+			.rows {
+				display: flex;
+				gap: 1rem;
+				width: fit-content;
+			}
+			.cols {
+				display: flex;
+				flex-direction: column;
+				gap: 1rem;
+				width: fit-content;
+				border: 1px solid rgb(128, 128, 128);
+				padding: 1rem;
+			}
+			button {
+				border: none;
+				padding: 1rem 2rem;
+				font-size: 1.5rem;
+			}
+			[data-selected] {
+				background-color: #261dd2;
+				color: #fff;
+			}
+			[data-selectable-group] {
+				border: 1px solid rgb(128, 128, 128);
+				padding: 1rem;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="cols">
+			<div class="rows">
+				<div data-selectable-group class="rows" data-selectable-next="test">
+					<button data-selectable>A</button>
+					<button data-selectable>B</button>
+					<button data-selectable>C</button>
+					<button data-selectable data-selectable-initial>D</button>
+				</div>
+			</div>
+
+			<div data-selectable-group data-selectable-disabled class="rows">
+				<button data-selectable>A</button>
+				<button data-selectable>B</button>
+				<button data-selectable>C</button>
+				<button data-selectable>D</button>
+			</div>
+
+			<div class="rows">
+				<div data-selectable-group class="cols">
+					<button data-selectable>A</button>
+					<button id="test" data-selectable>B</button>
+					<button data-selectable>C</button>
+					<button data-selectable>D</button>
+				</div>
+				<div
+					data-selectable-group
+					class="cols"
+					data-selectable-savelast="false"
+				>
+					<button data-selectable>A</button>
+					<button data-selectable>B</button>
+					<button data-selectable>C</button>
+					<button data-selectable>D</button>
+				</div>
+				<div data-selectable-group class="cols">
+					<button data-selectable>A</button>
+					<button data-selectable>B</button>
+					<button data-selectable>C</button>
+					<button data-selectable>D</button>
+				</div>
+			</div>
+		</div>
+
+		<script type="module" src="./src/index.ts"></script>
+	</body>
+</html>
