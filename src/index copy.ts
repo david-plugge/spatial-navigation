@@ -2,13 +2,11 @@ import { ATTRIBUTES } from './constants';
 import { isDisabled } from './entities';
 import {
 	getNext,
-	getSelectables,
 	isInitial,
 	isIsolated,
 	isItem,
 	isMarked,
 	isSaveLast,
-	isSelectable,
 	setMarked,
 	setSelected,
 	walkSelectables,
@@ -27,6 +25,7 @@ function selectItem(element: HTMLElement) {
 	element.focus();
 	element.dispatchEvent(new CustomEvent('select'));
 }
+
 function getSelected() {
 	return document.querySelector<HTMLElement>(
 		`[${ATTRIBUTES.selected}]:not([${ATTRIBUTES.selected}="false"])`,
@@ -38,12 +37,10 @@ function handle(dir: Direction) {
 	if (!selected) return;
 
 	const box = selected.getBoundingClientRect();
-	const markChain: HTMLElement[] = [];
-	const unmarkChain: HTMLElement[] = [];
 
-	run(selected, selected);
+	let current = selected;
 
-	function run(selected: HTMLElement, current: HTMLElement) {
+	while (1) {
 		const group = getParentGroup(current);
 		const next = getNext(current, dir);
 
@@ -51,12 +48,9 @@ function handle(dir: Direction) {
 		if (typeof next === 'string') {
 			const element = document.getElementById(next);
 			if (element) {
-				if (isSaveLast(group)) {
-					markChain.push(current);
-				}
 				select(element);
 			}
-			return;
+			break;
 		}
 
 		let distance = Infinity;
@@ -81,60 +75,70 @@ function handle(dir: Direction) {
 
 		if (closest) {
 			select(closest);
-			return;
+			break;
 		}
 		if (group === document.body) {
-			return;
+			break;
 		}
 		if (isIsolated(group)) {
-			return;
+			break;
 		}
 
 		if (isSaveLast(group)) {
-			markChain.push(current);
+			walkSelectables(group, (node) => {
+				setMarked(node, false);
+			});
+			setMarked(current, true);
 		}
-		run(selected, group);
+		current = group;
 	}
 
 	function select(element: HTMLElement) {
-		if (isItem(element)) {
-			selectItem(element);
+		while (1) {
+			if (isItem(element)) {
+				selectItem(element);
 
-			markChain.forEach((el) => setMarked(el, true));
-			unmarkChain.forEach((el) => setMarked(el, false));
+				// const group = getParentGroup(element);
+				// walkSelectables(group, (node) => {
+				// 	setMarked(node, false);
+				// });
 
-			return;
-		}
-
-		let distance = Infinity;
-		let closest: HTMLElement | null = null;
-
-		walkSelectables(element, (node) => {
-			if (node.isSameNode(selected) || isDisabled(node)) {
-				return;
-			}
-			if (isMarked(node) && distance > -1) {
-				distance = -1;
-				closest = node;
-				return;
-			}
-			if (isInitial(node) && distance > 0) {
-				distance = 0;
-				closest = node;
-				return;
+				break;
 			}
 
-			const d = getDistance(box, node.getBoundingClientRect(), dir);
+			let distance = Infinity;
+			let closest: HTMLElement | null = null;
 
-			if (d < distance) {
-				distance = d;
-				closest = node;
+			walkSelectables(element, (node) => {
+				if (node.isSameNode(selected) || isDisabled(node)) {
+					return;
+				}
+				if (isMarked(node)) {
+					if (distance > -1) {
+						closest = node;
+					}
+					setMarked(node, false);
+					distance = -1;
+					return;
+				}
+				if (isInitial(node) && distance > 0) {
+					distance = 0;
+					closest = node;
+					return;
+				}
+
+				const d = getDistance(box, node.getBoundingClientRect(), dir);
+
+				if (d < distance) {
+					distance = d;
+					closest = node;
+				}
+			});
+
+			if (!closest) {
+				break;
 			}
-		});
-
-		if (closest) {
-			unmarkChain.push(closest);
-			select(closest);
+			element = closest;
 		}
 	}
 }
@@ -147,8 +151,6 @@ function findFirst(element: HTMLElement): HTMLElement | null {
 	if (isItem(element)) {
 		return element;
 	}
-
-	const candidates = getSelectables(element);
 
 	let currentRank = 0;
 	let current: HTMLElement | null = null;

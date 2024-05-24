@@ -12,24 +12,25 @@ import {
 	walkSelectables,
 } from './state';
 import { Direction } from './types';
-import {
-	checkVisibility,
-	getCommonGroup,
-	getDistance,
-	getParentGroup,
-} from './utils';
+import { checkVisibility, getDistance, getParentGroup } from './utils';
 
 function selectItem(element: HTMLElement) {
 	document
 		.querySelectorAll<HTMLElement>(`[${ATTRIBUTES.selected}]`)
 		.forEach((el) => {
 			setSelected(el, false);
-			el.dispatchEvent(new CustomEvent('unselect'));
+			el.dispatchEvent(
+				new CustomEvent('unselect', {
+					bubbles: true,
+					detail: { selected: element },
+				}),
+			);
 		});
 	setSelected(element, true);
 	element.focus();
-	element.dispatchEvent(new CustomEvent('select'));
+	element.dispatchEvent(new CustomEvent('select', { bubbles: true }));
 }
+
 function getSelected() {
 	return document.querySelector<HTMLElement>(
 		`[${ATTRIBUTES.selected}]:not([${ATTRIBUTES.selected}="false"])`,
@@ -42,9 +43,9 @@ function handle(dir: Direction) {
 
 	const box = selected.getBoundingClientRect();
 
-	run(selected, selected);
+	let current = selected;
 
-	function run(selected: HTMLElement, current: HTMLElement) {
+	while (1) {
 		const group = getParentGroup(current);
 		const next = getNext(current, dir);
 
@@ -54,7 +55,7 @@ function handle(dir: Direction) {
 			if (element) {
 				select(element);
 			}
-			return;
+			break;
 		}
 
 		let distance = Infinity;
@@ -79,61 +80,70 @@ function handle(dir: Direction) {
 
 		if (closest) {
 			select(closest);
-			return;
+			break;
 		}
 		if (group === document.body) {
-			return;
+			break;
 		}
 		if (isIsolated(group)) {
-			return;
+			break;
 		}
 
 		if (isSaveLast(group)) {
-			setMarked(current, true);
-		}
-		run(selected, group);
-	}
-
-	function select(element: HTMLElement) {
-		if (isItem(element)) {
-			selectItem(element);
-
-			const group = getParentGroup(element);
 			walkSelectables(group, (node) => {
 				setMarked(node, false);
 			});
-
-			return;
+			setMarked(current, true);
 		}
+		current = group;
+	}
 
-		let distance = Infinity;
-		let closest: HTMLElement | null = null;
+	function select(element: HTMLElement) {
+		while (1) {
+			if (isItem(element)) {
+				selectItem(element);
 
-		walkSelectables(element, (node) => {
-			if (node.isSameNode(selected) || isDisabled(node)) {
-				return;
-			}
-			if (isMarked(node) && distance > -1) {
-				distance = -1;
-				closest = node;
-				return;
-			}
-			if (isInitial(node) && distance > 0) {
-				distance = 0;
-				closest = node;
-				return;
+				// const group = getParentGroup(element);
+				// walkSelectables(group, (node) => {
+				// 	setMarked(node, false);
+				// });
+
+				break;
 			}
 
-			const d = getDistance(box, node.getBoundingClientRect(), dir);
+			let distance = Infinity;
+			let closest: HTMLElement | null = null;
 
-			if (d < distance) {
-				distance = d;
-				closest = node;
+			walkSelectables(element, (node) => {
+				if (node.isSameNode(selected) || isDisabled(node)) {
+					return;
+				}
+				if (isMarked(node)) {
+					if (distance > -1) {
+						closest = node;
+					}
+					setMarked(node, false);
+					distance = -1;
+					return;
+				}
+				if (isInitial(node) && distance > 0) {
+					distance = 0;
+					closest = node;
+					return;
+				}
+
+				const d = getDistance(box, node.getBoundingClientRect(), dir);
+
+				if (d < distance) {
+					distance = d;
+					closest = node;
+				}
+			});
+
+			if (!closest) {
+				break;
 			}
-		});
-
-		if (closest) {
-			select(closest);
+			element = closest;
 		}
 	}
 }
@@ -166,14 +176,17 @@ function findFirst(element: HTMLElement): HTMLElement | null {
 	return current ? findFirst(current) : null;
 }
 
-main: {
-	const selected = findFirst(document.body);
+const selected = findFirst(document.body);
 
-	if (selected) {
-		selectItem(selected);
-	}
+if (selected) {
+	selectItem(selected);
+}
 
-	document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e) => {
+	if (e.defaultPrevented) return;
+
+	let handled = true;
+	if (e.key) {
 		switch (e.key) {
 			case 'ArrowUp':
 				handle('up');
@@ -187,6 +200,31 @@ main: {
 			case 'ArrowRight':
 				handle('right');
 				break;
+			default:
+				handled = false;
+				break;
 		}
-	});
-}
+	} else if (e.keyCode) {
+		switch (e.keyCode) {
+			case 38:
+				handle('up');
+				break;
+			case 40:
+				handle('down');
+				break;
+			case 37:
+				handle('left');
+				break;
+			case 39:
+				handle('right');
+				break;
+			default:
+				handled = false;
+				break;
+		}
+	}
+
+	if (handled) {
+		e.preventDefault();
+	}
+});
