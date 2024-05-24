@@ -52,30 +52,11 @@ export function getNext(element: HTMLElement, dir: Direction) {
 	return next === 'null' ? null : next;
 }
 
-export function getSelectables(element: HTMLElement) {
-	const items: HTMLElement[] = [];
-
-	const walker = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT, {
-		acceptNode: (node: HTMLElement) => {
-			if (!isSelectable(node)) {
-				return NodeFilter.FILTER_SKIP;
-			}
-
-			items.push(node);
-			return NodeFilter.FILTER_REJECT;
-		},
-	});
-
-	while (walker.nextNode());
-
-	return items;
-}
-
 export function walkSelectables(
 	element: HTMLElement,
 	fn: (element: HTMLElement) => void,
 ) {
-	const walker = document.createNodeIterator(element, NodeFilter.SHOW_ELEMENT, {
+	const walker = document.createTreeWalker(element, NodeFilter.SHOW_ELEMENT, {
 		acceptNode: (node: HTMLElement) => {
 			if (!isSelectable(node)) {
 				return NodeFilter.FILTER_SKIP;

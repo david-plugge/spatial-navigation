@@ -2,19 +2,22 @@ import { ATTRIBUTES } from './constants';
 import { isDisabled } from './entities';
 import {
 	getNext,
-	getSelectables,
 	isInitial,
 	isIsolated,
 	isItem,
 	isMarked,
 	isSaveLast,
-	isSelectable,
 	setMarked,
 	setSelected,
 	walkSelectables,
 } from './state';
 import { Direction } from './types';
-import { checkVisibility, getDistance, getParentGroup } from './utils';
+import {
+	checkVisibility,
+	getCommonGroup,
+	getDistance,
+	getParentGroup,
+} from './utils';
 
 function selectItem(element: HTMLElement) {
 	document
@@ -38,8 +41,6 @@ function handle(dir: Direction) {
 	if (!selected) return;
 
 	const box = selected.getBoundingClientRect();
-	const markChain: HTMLElement[] = [];
-	const unmarkChain: HTMLElement[] = [];
 
 	run(selected, selected);
 
@@ -51,9 +52,6 @@ function handle(dir: Direction) {
 		if (typeof next === 'string') {
 			const element = document.getElementById(next);
 			if (element) {
-				if (isSaveLast(group)) {
-					markChain.push(current);
-				}
 				select(element);
 			}
 			return;
@@ -71,8 +69,6 @@ function handle(dir: Direction) {
 				return;
 			}
 
-			console.log(node);
-
 			const d = getDistance(box, node.getBoundingClientRect(), dir);
 
 			if (d < distance) {
@@ -80,33 +76,6 @@ function handle(dir: Direction) {
 				closest = node;
 			}
 		});
-
-		// const walker = document.createTreeWalker(group, NodeFilter.SHOW_ELEMENT, {
-		// 	acceptNode: (node: HTMLElement) => {
-		// 		if (!isSelectable(node)) {
-		// 			return NodeFilter.FILTER_SKIP;
-		// 		}
-
-		// 		if (
-		// 			node.isSameNode(selected) ||
-		// 			isDisabled(node) ||
-		// 			!checkVisibility(node)
-		// 		) {
-		// 			return NodeFilter.FILTER_REJECT;
-		// 		}
-
-		// 		const d = getDistance(box, node.getBoundingClientRect(), dir);
-
-		// 		if (d < distance) {
-		// 			distance = d;
-		// 			closest = node;
-		// 		}
-
-		// 		return NodeFilter.FILTER_REJECT;
-		// 	},
-		// });
-
-		// while (walker.nextNode());
 
 		if (closest) {
 			select(closest);
@@ -120,7 +89,7 @@ function handle(dir: Direction) {
 		}
 
 		if (isSaveLast(group)) {
-			markChain.push(current);
+			setMarked(current, true);
 		}
 		run(selected, group);
 	}
@@ -129,8 +98,10 @@ function handle(dir: Direction) {
 		if (isItem(element)) {
 			selectItem(element);
 
-			markChain.forEach((el) => setMarked(el, true));
-			unmarkChain.forEach((el) => setMarked(el, false));
+			const group = getParentGroup(element);
+			walkSelectables(group, (node) => {
+				setMarked(node, false);
+			});
 
 			return;
 		}
@@ -138,40 +109,30 @@ function handle(dir: Direction) {
 		let distance = Infinity;
 		let closest: HTMLElement | null = null;
 
-		const walker = document.createTreeWalker(element, NodeFilter.SHOW_ELEMENT, {
-			acceptNode: (node: HTMLElement) => {
-				if (!isSelectable(node)) {
-					return NodeFilter.FILTER_SKIP;
-				}
-				if (node.isSameNode(selected) || isDisabled(node)) {
-					return NodeFilter.FILTER_REJECT;
-				}
-				if (isMarked(node) && distance > -1) {
-					distance = -1;
-					closest = node;
-					return NodeFilter.FILTER_REJECT;
-				}
-				if (isInitial(node) && distance > 0) {
-					distance = 0;
-					closest = node;
-					return NodeFilter.FILTER_REJECT;
-				}
+		walkSelectables(element, (node) => {
+			if (node.isSameNode(selected) || isDisabled(node)) {
+				return;
+			}
+			if (isMarked(node) && distance > -1) {
+				distance = -1;
+				closest = node;
+				return;
+			}
+			if (isInitial(node) && distance > 0) {
+				distance = 0;
+				closest = node;
+				return;
+			}
 
-				const d = getDistance(box, node.getBoundingClientRect(), dir);
+			const d = getDistance(box, node.getBoundingClientRect(), dir);
 
-				if (d < distance) {
-					distance = d;
-					closest = node;
-				}
-
-				return NodeFilter.FILTER_REJECT;
-			},
+			if (d < distance) {
+				distance = d;
+				closest = node;
+			}
 		});
 
-		while (walker.nextNode());
-
 		if (closest) {
-			unmarkChain.push(closest);
 			select(closest);
 		}
 	}
@@ -186,23 +147,21 @@ function findFirst(element: HTMLElement): HTMLElement | null {
 		return element;
 	}
 
-	const candidates = getSelectables(element);
-
 	let currentRank = 0;
 	let current: HTMLElement | null = null;
 
-	for (const candidate of candidates) {
-		if (isMarked(candidate)) {
-			return findFirst(candidate);
+	walkSelectables(element, (node) => {
+		if (isMarked(node)) {
+			return findFirst(node);
 		}
-		if (isInitial(candidate)) {
+		if (isInitial(node)) {
 			if (currentRank < 1) {
 				currentRank = 1;
-				current = candidate;
+				current = node;
 			}
 		}
-		current ??= candidate;
-	}
+		current ??= node;
+	});
 
 	return current ? findFirst(current) : null;
 }
