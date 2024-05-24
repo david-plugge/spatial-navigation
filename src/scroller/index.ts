@@ -97,11 +97,11 @@ document.querySelectorAll<HTMLElement>('.item').forEach((el) => {
 	});
 });
 
-scroller.addEventListener('unselect', (e) => {
-	const event = e as CustomEvent<{ selected: HTMLElement }>;
+// scroller.addEventListener('unselect', (e) => {
+// 	const event = e as CustomEvent<{ selected: HTMLElement }>;
 
-	if (!scroller.contains(event.detail.selected)) {
-		const first = scroller.querySelector<HTMLElement>('.item');
-		first && _scrollIntoView(first);
-	}
-});
+// 	if (!scroller.contains(event.detail.selected)) {
+// 		const first = scroller.querySelector<HTMLElement>('.item');
+// 		first && _scrollIntoView(first);
+// 	}
+// });

@@ -4,7 +4,7 @@ import legacy from '@vitejs/plugin-legacy';
 export default defineConfig({
 	build: {
 		rollupOptions: {
-			input: 'test.html',
+			input: 'index.html',
 			output: {
 				dir: 'dist',
 				manualChunks: {},
