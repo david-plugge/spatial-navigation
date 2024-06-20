@@ -1,5 +1,4 @@
 import { ATTRIBUTES } from './constants';
-import { isDisabled } from './entities';
 import {
 	getNext,
 	isInitial,
@@ -8,36 +7,37 @@ import {
 	isMarked,
 	isSaveLast,
 	setMarked,
+	isDisabled,
 	setSelected,
 	walkSelectables,
 } from './state';
 import { Direction } from './types';
 import { checkVisibility, getDistance, getParentGroup } from './utils';
 
-function selectItem(element: HTMLElement) {
-	document
-		.querySelectorAll<HTMLElement>(`[${ATTRIBUTES.selected}]`)
-		.forEach((el) => {
-			setSelected(el, false);
-			el.dispatchEvent(
-				new CustomEvent('unselect', {
-					bubbles: true,
-					detail: { selected: element },
-				}),
-			);
-		});
+const SELECTED_QUERY = `[${ATTRIBUTES.selected}]:not([${ATTRIBUTES.selected}="false"])`;
+
+export function selectItem(element: HTMLElement) {
+	// unselect all selected elements
+	// only one should be selected but better be safe than sorry
+	document.querySelectorAll<HTMLElement>(SELECTED_QUERY).forEach((el) => {
+		setSelected(el, false);
+		el.dispatchEvent(
+			new CustomEvent('unselect', {
+				bubbles: true,
+				detail: { selected: element },
+			}),
+		);
+	});
 	setSelected(element, true);
 	element.focus();
 	element.dispatchEvent(new CustomEvent('select', { bubbles: true }));
 }
 
-function getSelected() {
-	return document.querySelector<HTMLElement>(
-		`[${ATTRIBUTES.selected}]:not([${ATTRIBUTES.selected}="false"])`,
-	);
+export function getSelected() {
+	return document.querySelector<HTMLElement>(SELECTED_QUERY);
 }
 
-function handle(dir: Direction) {
+export function handle(dir: Direction) {
 	const selected = getSelected();
 	if (!selected) return;
 
@@ -45,7 +45,7 @@ function handle(dir: Direction) {
 
 	let current = selected;
 
-	while (1) {
+	while (true) {
 		const group = getParentGroup(current);
 		const next = getNext(current, dir);
 
@@ -99,16 +99,10 @@ function handle(dir: Direction) {
 	}
 
 	function select(element: HTMLElement) {
-		while (1) {
+		while (true) {
 			if (isItem(element)) {
 				selectItem(element);
-
-				// const group = getParentGroup(element);
-				// walkSelectables(group, (node) => {
-				// 	setMarked(node, false);
-				// });
-
-				break;
+				return;
 			}
 
 			let distance = Infinity;
@@ -148,7 +142,7 @@ function handle(dir: Direction) {
 	}
 }
 
-function findFirst(element: HTMLElement): HTMLElement | null {
+export function findFirstSelectable(element: HTMLElement): HTMLElement | null {
 	if (isDisabled(element)) {
 		return null;
 	}
@@ -162,7 +156,7 @@ function findFirst(element: HTMLElement): HTMLElement | null {
 
 	walkSelectables(element, (node) => {
 		if (isMarked(node)) {
-			return findFirst(node);
+			return findFirstSelectable(node);
 		}
 		if (isInitial(node)) {
 			if (currentRank < 1) {
@@ -173,13 +167,14 @@ function findFirst(element: HTMLElement): HTMLElement | null {
 		current ??= node;
 	});
 
-	return current ? findFirst(current) : null;
+	return current ? findFirstSelectable(current) : null;
 }
 
-const selected = findFirst(document.body);
+//  ==================================================
 
-if (selected) {
-	selectItem(selected);
+const selectable = findFirstSelectable(document.body);
+if (selectable) {
+	selectItem(selectable);
 }
 
 document.addEventListener('keydown', (e) => {
