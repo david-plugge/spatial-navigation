@@ -4,6 +4,7 @@ export const ATTRIBUTES = {
 	selected: 'data-selected',
 
 	disabled: 'data-selectable-disabled',
+	isolated: 'data-selectable-isolated',
 	initial: 'data-selectable-disabled',
 	next: 'data-selectable-next',
 	history: 'data-selectable-history',
